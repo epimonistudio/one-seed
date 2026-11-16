@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#F4EFE6">
+    <title>One Seed</title>
+    <style>
+      html, body { margin: 0; padding: 0; height: 100%; background: #F4EFE6; overflow: hidden;
+                   -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: none;
+                   font-family: Arial, Helvetica, sans-serif; color: #3E3226; }
+      /* Columna vertical 9:16: en PC centrada a la altura de la ventana; en celular llena la pantalla. */
+      #juego { position: fixed; top: 0; left: 50%; transform: translateX(-50%); height: 100%; background: #F4EFE6; }
+      #unity-canvas { display: block; width: 100%; height: 100%; background: #F4EFE6; outline: none; }
+      #carga { position: absolute; left: 0; right: 0; top: 0; bottom: 0; display: flex; flex-direction: column;
+               align-items: center; justify-content: center; text-align: center; padding: 0 24px; box-sizing: border-box; }
+      #carga .logo { font-size: 44px; font-weight: bold; margin-bottom: 24px; }
+      #carga .barra { width: 70%; max-width: 320px; height: 14px; border-radius: 7px; background: #E2D6C3; overflow: hidden; }
+      #carga .lleno { width: 0%; height: 100%; background: #5B8C5A; transition: width 0.2s; }
+      #carga .nota { margin-top: 26px; font-size: 15px; line-height: 1.4; max-width: 340px; opacity: 0.8; }
+      #carga .error { margin-top: 18px; font-size: 15px; color: #B23A30; max-width: 340px; }
+      #girar { display: none; position: fixed; left: 0; top: 0; right: 0; bottom: 0; z-index: 40; background: #F4EFE6;
+               align-items: center; justify-content: center; text-align: center; font-size: 24px; font-weight: bold; padding: 24px; }
+    </style>
+  </head>
+  <body>
+    <div id="juego">
+      <canvas id="unity-canvas" tabindex="-1"></canvas>
+      <div id="carga">
+        <div class="logo">One Seed</div>
+        <div class="barra"><div class="lleno" id="lleno"></div></div>
+        <div class="nota">Tu avance se guarda en este navegador. Si borras los datos o usas modo incógnito, se pierde.</div>
+        <div class="error" id="error"></div>
+      </div>
+    </div>
+    <div id="girar">Gira tu celular para jugar 📱</div>
+    <script>
+      var movil = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ||
+                  (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
+      var juego = document.getElementById('juego');
+      var canvas = document.getElementById('unity-canvas');
+      var instancia = null;
+
+      // Tamano de la columna del juego (sin estirar ni deformar).
+      function ajustar() {
+        var w = window.innerWidth, h = window.innerHeight;
+        if (movil) {
+          juego.style.width = w + 'px';
+          juego.style.height = h + 'px';
+          // El navegador no deja bloquear la orientacion: si el celular esta horizontal, se pide girarlo.
+          document.getElementById('girar').style.display = w > h ? 'flex' : 'none';
+        } else {
+          var ancho = Math.min(w, Math.round(h * 9 / 16));
+          juego.style.width = ancho + 'px';
+          juego.style.height = h + 'px';
+        }
+      }
+      window.addEventListener('resize', ajustar);
+      window.addEventListener('orientationchange', function () { setTimeout(ajustar, 200); });
+      ajustar();
+
+      var buildUrl = "Build";
+      var config = {
+        arguments: [],
+        dataUrl: buildUrl + "/web.data.unityweb",
+        frameworkUrl: buildUrl + "/web.framework.js.unityweb",
+        codeUrl: buildUrl + "/web.wasm.unityweb",
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: "Epimoni Studio",
+        productName: "One Seed",
+        productVersion: "0.7.0",
+        // Todo lo que el juego guarda queda en el almacenamiento del navegador (IndexedDB).
+        autoSyncPersistentDataPath: true,
+        showBanner: function (msg, tipo) { if (tipo === 'error') document.getElementById('error').textContent = msg; }
+      };
+      // En celulares con pantalla muy densa se limita la resolucion (mas fluido y no se calienta).
+      if (movil) config.devicePixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+
+      // Guardar al ocultar la pestana o salir de la pagina.
+      function guardar() { try { if (instancia) instancia.SendMessage('Juego', 'GuardarAhora'); } catch (e) { } }
+      document.addEventListener('visibilitychange', function () { if (document.hidden) guardar(); });
+      window.addEventListener('pagehide', guardar);
+
+      var script = document.createElement("script");
+      script.src = buildUrl + "/web.loader.js";
+      script.onload = function () {
+        createUnityInstance(canvas, config, function (p) {
+          document.getElementById('lleno').style.width = (100 * p) + '%';
+        }).then(function (u) {
+          instancia = u;
+          document.getElementById('carga').style.display = 'none';
+        }).catch(function (msg) {
+          document.getElementById('error').textContent = 'No se pudo cargar el juego: ' + msg;
+        });
+      };
+      script.onerror = function () {
+        document.getElementById('error').textContent = 'No se pudo cargar el juego. Revisa tu conexión y recarga la página.';
+      };
+      document.body.appendChild(script);
+    </script>
+  </body>
+</html>
